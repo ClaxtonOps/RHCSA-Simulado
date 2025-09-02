@@ -71,12 +71,47 @@ pvdisplay
 
 Task 4:  
 Uninitialize all three physical volumes by deleting the LVM structural information from them. Remove the partitions from the sdd disk and verify that all disks are now in their original raw state
+```
+pvremove /dev/sdb1
+pvremove /dev/sdc
+pvremove /dev/sdd1
+fdisk /dev/sdb (d for delete parte1, d for delete parte2, w for salve)
+fdisk /dev/sdc (the same)
+
+[root@node1 ~]# lsblk
+NAME          MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda             8:0    0   32G  0 disk 
+├─sda1          8:1    0    1G  0 part /boot
+└─sda2          8:2    0   31G  0 part 
+  ├─rhel-root 253:0    0   29G  0 lvm  /
+  └─rhel-swap 253:1    0    2G  0 lvm  [SWAP]
+sdb             8:16   0   10G  0 disk 
+sdc             8:32   0   10G  0 disk 
+sr0            11:0    1 11.9G  0 rom  /repo
+```
+
 
 Task 5:  
 Create a new logical volume (LV-A) with a size of 30 extents that belongs to the volume group VG-A (with a PE size of 32M). After creating the volume, configure the server to mount it persistently on /mnt/share_drive/
+```
+vgcreate --physicalextentsize 32M VG-A /dev/sdb1
+lvcreate -l 30 -n LV-A VG-A
+mkfs.ext4 /dev/VG-A/LV-A
+mkdir -p /mnt/share_drive
+mount /dev/VG-A/LV-A /mnt/share_drive/
+blkid /dev/VG-A/LV-A
+vim /etc/fstab
+UUID="4f231ff1-d7fc-43d1-95be-11b98aba81d2" /mnt/share_drive ext4 defaults 0 0
+
+mount -a
+systemctl daemon-reload
+```
 
 Task 6:  
 Create 1 swap of 400MB on sdc. Create another swap area in a 400MB logical volume called swapvol in vgfs of 1GB. Add their entries to the /etc/fstab file for persistence. Use the UUID and priority 1 for the partition swap and the device file and priority 2 for the logical volume swap. Activate them and use appropriate tools to validate the activation
+```
+
+```
 
 Task 7:  
 Create 2x500MB partitions on the /dev/sdb disk, initialise them separately with the Ext4 and XFS file system types
@@ -86,7 +121,25 @@ Create 2x500MB partitions on the /dev/sdb disk, initialise them separately with 
 - attach them to the directory structure, verify their availability and usage
     
 - mount them persistently using their labels
-    
+
+```
+fdisk /dev/sdb (crate 2 part 500m)
+mkfs.ext4 /dev/sdb1 && mkfs.xfs /dev/sdb2
+mkdir -p /ext4fs
+mkdir -p /xfs1
+
+mount /dev/sdb1 /xfs1
+mount /dev/sdb2 /ext4fs
+
+e2label /dev/sdb2 ext4fs
+xfs_admin -L xfs1 /dev/sdb1
+
+echo "LABEL="ext4fs" /ext4fs ext4 defaults 0 0" >> /etc/fstab 
+echo "LABEL="xfs1" /xfs1 xfs defaults 0 0" >> /etc/fstab
+
+mount -a
+systemctl daemon-reload
+```
 
 Task 8:  
 Create a volume group called vgfs comprised of a 1.6GB physical volume created in a partition on the /dev/sdc disk. The PE size for the volume group should be set at 160MB. Create 2 logical volumes called ext4vol and xfsvol of size 800MB each and initialise them with the Ext4 and XFS file system types. Ensure that both file systems are persistently defined using their logical volume device filenames. Create mount points /ext4fs2 and /xfsfs2, mount the file systems, and verify their availability and usage
