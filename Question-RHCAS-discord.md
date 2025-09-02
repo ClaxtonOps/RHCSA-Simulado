@@ -1,8 +1,73 @@
 Task 1: Create web data and sales data directories in /export/web_data and /export/sales_data on node 1. Persistently mount web data and sales data on node2 under /mnt/nfs_web_data and /mnt/nfs_sales_data
+```
+ssh student@node1
+su -
+dnf install nfs-server -y
+
+vim /etc/exports
+/sales_data *(rw,sync,no_root_squash)
+/web_data *(rw,sync,no_root_squash)
+systemctl restart nfs-server
+firewall-cmd --add-service=nfs --permanent
+firewall-cmd --add-service=rpc-bind --permanent
+firewall-cmd --reload
+
+ssh student@node2
+su -
+dnf install -y nfs-utils
+firewall-cmd --add-service=nfs --permanent
+firewall-cmd --add-service=rpc-bind --permanent
+firewall-cmd --reload
+mkdir -p /mnt/nfs_web_data
+mkdir -p /mnt/nfs_sales_data
+vim /etc/fstab
+node1:/sales_data /mnt/nfs_sales_data nfs defaults 0 0
+node1:/web_data /mnt/nfs_web_data nfs defaults 0 0
+systemctl restart nfs-utils
+mount -a
+systemctl daemon-reload
+```
 
 Task 2: Create a 2 GB gpt partition on node 1 and format the partition with xfs and mount the device persistently
+```
+fdisk /dev/sdb (g, n, enter, +1G, w)
+mkswap /dev/sdb1
+swapon /dev/sdb1
+echo "/dev/sdb1 none swap defaults 0 0" >> /etc/fstab
+mount -a
+systemctl daemon-reload
+```
+
 
 Task 3: On Node1 Initialise one partition on sdb1 (1GB) and one on sdc (500MB) for use in LVM. Create a volume group called vg_group and add both physical volumes to it. Use the PE size of 16MB. Create two logical volumes, lv1 and lv2, in the vg_group volume group. Use 500MB for lv1 and 300MB for lv2. Display the details of the volume group and the logical volumes. Add another partition sdb2 of size 500MB to vg_group to increase the pool of allocatable space. Initialise the new partition prior to adding it to the volume group. Increase the size of lv1 to 600MB. Display the basic information for the physical volumes, volume group, and logical volume. Rename lv1 to lv0. Decrease the size of lv0 to 200MB. Remove both logical volumes. Display the summary for the volume groups, logical volumes, and physical volumes
+```
+fdisk /dev/sdb (1gb, lvm)
+fdisk /dev/sdc (500mb, lvm)
+
+vgcreate --physicalextentsize 16M vg_group /dev/sdb1 /dev/sdc1
+
+lvcreate -L 500M -n lv1 vg_group
+lvcreate -L 300M -n lv2 vg_group
+vgdisplay vg_group
+lvdisplay 
+
+fdisk /dev/sdb (500M, lvm)
+vgextend vg_group /dev/sdb2
+lvresize -L 600M /dev/vg_group/lv1
+pvs
+lvs
+vgs
+
+lvrename /dev/vg_group/lv1 /dev/vg_group/lv0
+lvresize -L 200M /dev/vg_group/lv0
+lvremove /dev/vg_group/lv0
+lvremove /dev/vg_group/lv2
+vgdisplay
+lvdisplay
+pvdisplay
+
+```
+
 
 Task 4:  
 Uninitialize all three physical volumes by deleting the LVM structural information from them. Remove the partitions from the sdd disk and verify that all disks are now in their original raw state
